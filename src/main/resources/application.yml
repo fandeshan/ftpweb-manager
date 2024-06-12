@@ -1,0 +1,9 @@
+# ---------------------------------------------  启动端口 ------------------------------------------------------- #
+server:
+  port: 8080
+spring:
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+rootPath: /data/uf/default/threejs

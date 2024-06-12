@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>FTP-like Web Interface</title>
+	<link rel="stylesheet" href="/css/bootstrap.min.css">
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			margin: 20px;
+		}
+		#file-list {
+			margin-top: 20px;
+		}
+		#file-list ul {
+			list-style-type: none;
+			padding: 0;
+		}
+		#file-list li {
+			padding: 10px;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			border: 1px solid #ccc;
+			border-radius: 5px;
+			margin-bottom: 5px;
+			cursor: pointer;
+		}
+		#file-list li:hover {
+			background-color: #f1f1f1;
+		}
+		.file-name {
+			flex-grow: 1;
+			display: flex;
+			align-items: center;
+		}
+		.file-icon {
+			width: 24px;
+			height: 24px;
+			margin-right: 10px;
+		}
+		.btn-outline-secondary {
+			margin-left: 10px;
+		}
+		#selected-files {
+			margin-top: 10px;
+		}
+	</style>
+</head>
+<body>
+<div class="container">
+	<h1>WR微FTP工具-3D</h1>
+	<div class="input-group mb-3">
+		<div class="input-group-prepend">
+			<button class="btn btn-outline-secondary" type="button" onclick="goUp()">返回上级</button>
+		</div>
+		<input type="text" class="form-control" id="current-path" readonly>
+	</div>
+	<div class="input-group mb-3">
+		<div class="custom-file">
+			<input type="file" class="custom-file-input" id="file-input" multiple onchange="displaySelectedFiles()">
+			<label class="custom-file-label" for="file-input">选择文件</label>
+		</div>
+		<div class="input-group-append">
+			<button class="btn btn-outline-secondary" type="button" onclick="uploadFiles()">上传</button>
+		</div>
+	</div>
+	<div id="selected-files" class="form-text"></div>
+	<div class="input-group mb-3">
+		<input type="text" class="form-control" id="new-dir-name" placeholder="请输入目录名">
+		<div class="input-group-append">
+			<button class="btn btn-outline-secondary" type="button" onclick="createDirectory()">创建目录</button>
+		</div>
+	</div>
+	<div id="file-list" class="list-group"></div>
+</div>
+
+<div class="modal" tabindex="-1" role="dialog" id="rename-modal">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">重命名</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<input type="text" class="form-control" id="rename-new-name" placeholder="请输入名称">
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-primary" onclick="rename()">保存修改</button>
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	let currentPath = '';
+	let renameOldName = '';
+
+	async function fetchDirectory(path = '') {
+		currentPath = path;
+		document.getElementById('current-path').value = currentPath;
+
+		const response = await fetch(`/api/list?path=${encodeURIComponent(path)}`);
+		const files = await response.json();
+		const fileList = document.getElementById('file-list');
+		fileList.innerHTML = '';
+
+		if (path !== '') {
+			const upItem = document.createElement('li');
+			upItem.className = 'list-group-item';
+			upItem.innerHTML = '<span class="file-name" onclick="goUp()">..</span>';
+			fileList.appendChild(upItem);
+		}
+
+		files.forEach(file => {
+			const item = document.createElement('li');
+			item.className = 'list-group-item';
+			item.innerHTML = `<span class="file-name" onclick="changeDirectoryOrSelect('${file.name}', ${file.directory})">
+                                    <img src="${file.directory ? 'folder-icon.jpeg' : 'file-icon.jpeg'}" alt="${file.directory ? 'Folder' : 'File'} Icon" class="file-icon">
+                                    ${file.name}
+                                  </span>
+                                  <button class="btn btn-sm btn-outline-secondary" onclick="showRenameModal('${file.name}', event)">重命名</button>
+                                  <button class="btn btn-sm btn-outline-danger" onclick="deleteItem('${file.name}', ${file.directory}, event)">删除</button>`;
+			fileList.appendChild(item);
+		});
+	}
+
+	function goUp() {
+		const parts = currentPath.split('/').filter(part => part.length > 0);
+		parts.pop();
+		fetchDirectory(parts.join('/'));
+	}
+
+	function changeDirectoryOrSelect(name, isDirectory) {
+		if (isDirectory) {
+			const changeDir = currentPath == ''? name:currentPath+"/"+name;
+			changeDirectory(`${changeDir}`);
+		}
+	}
+
+	function changeDirectory(path) {
+		fetchDirectory(path);
+	}
+
+	function displaySelectedFiles() {
+		const input = document.getElementById('file-input');
+		const fileNames = Array.from(input.files).map(file => file.name).join(', ');
+		document.getElementById('selected-files').innerText = `Selected files: ${fileNames}`;
+	}
+
+	async function uploadFiles() {
+		const input = document.getElementById('file-input');
+		const formData = new FormData();
+		for (const file of input.files) {
+			formData.append('files', file);
+		}
+		await fetch(`/api/upload?path=${encodeURIComponent(currentPath)}`, {
+			method: 'POST',
+			body: formData
+		});
+		fetchDirectory(currentPath);
+	}
+
+	async function createDirectory() {
+		const dirName = document.getElementById('new-dir-name').value;
+		await fetch(`/api/create-directory?path=${encodeURIComponent(currentPath)}&name=${encodeURIComponent(dirName)}`, {
+			method: 'POST'
+		});
+		fetchDirectory(currentPath);
+	}
+
+	function showRenameModal(oldName, event) {
+		event.stopPropagation();
+		renameOldName = oldName;
+		document.getElementById('rename-new-name').value = oldName;
+		$('#rename-modal').modal('show');
+	}
+
+	async function rename() {
+		const newName = document.getElementById('rename-new-name').value;
+		await fetch(`/api/rename?path=${encodeURIComponent(currentPath)}&oldName=${encodeURIComponent(renameOldName)}&newName=${encodeURIComponent(newName)}`, {
+			method: 'POST'
+		});
+		$('#rename-modal').modal('hide');
+		fetchDirectory(currentPath);
+	}
+
+	async function deleteItem(name, isDirectory, event) {
+		event.stopPropagation();
+		const confirmed = confirm(`你确定要删除${isDirectory ? '目录' : '文件'}: ${name}?`);
+		if (confirmed) {
+			await fetch(`/api/delete?path=${encodeURIComponent(currentPath)}&name=${encodeURIComponent(name)}`, {
+				method: 'DELETE'
+			});
+			fetchDirectory(currentPath);
+		}
+	}
+
+	fetchDirectory();
+</script>
+
+<script src="/js/jquery-3.5.1.slim.min.js"></script>
+<script src="/js/popper.min.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+</body>
+</html>
