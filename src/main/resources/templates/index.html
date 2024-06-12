@@ -120,11 +120,12 @@
 			const item = document.createElement('li');
 			item.className = 'list-group-item';
 			item.innerHTML = `<span class="file-name" onclick="changeDirectoryOrSelect('${file.name}', ${file.directory})">
-                                    <img src="${file.directory ? 'folder-icon.jpeg' : 'file-icon.jpeg'}" alt="${file.directory ? 'Folder' : 'File'} Icon" class="file-icon">
-                                    ${file.name}
-                                  </span>
-                                  <button class="btn btn-sm btn-outline-secondary" onclick="showRenameModal('${file.name}', event)">重命名</button>
-                                  <button class="btn btn-sm btn-outline-danger" onclick="deleteItem('${file.name}', ${file.directory}, event)">删除</button>`;
+                                <img src="${file.directory ? 'folder-icon.jpeg' : 'file-icon.jpeg'}" alt="${file.directory ? 'Folder' : 'File'} Icon" class="file-icon">
+                                ${file.name}
+                              </span>
+                              <button class="btn btn-sm btn-outline-secondary" onclick="showRenameModal('${file.name}', event)">重命名</button>
+                              <button class="btn btn-sm btn-outline-danger" onclick="deleteItem('${file.name}', ${file.directory}, event)">删除</button>
+                              ${!file.directory ? `<button class="btn btn-sm btn-outline-success" onclick="downloadFile('${file.name}', event)">下载</button>` : ''}`;
 			fileList.appendChild(item);
 		});
 	}
@@ -137,7 +138,7 @@
 
 	function changeDirectoryOrSelect(name, isDirectory) {
 		if (isDirectory) {
-			const changeDir = currentPath == ''? name:currentPath+"/"+name;
+			const changeDir = currentPath == '' ? name : currentPath + "/" + name;
 			changeDirectory(`${changeDir}`);
 		}
 	}
@@ -198,6 +199,16 @@
 			});
 			fetchDirectory(currentPath);
 		}
+	}
+
+	async function downloadFile(name, event) {
+		event.stopPropagation();
+		const link = document.createElement('a');
+		link.href = `/api/download?path=${encodeURIComponent(currentPath)}&name=${encodeURIComponent(name)}`;
+		link.setAttribute('download', name);
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
 	}
 
 	fetchDirectory();

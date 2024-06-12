@@ -6,4 +6,4 @@ spring:
     multipart:
       max-file-size: 200MB
       max-request-size: 200MB
-rootPath: /data/uf/default/threejs
+rootPath: /data/file
